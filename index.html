@@ -34,11 +34,16 @@ button {
   cursor: pointer;
 }
 
+button:hover {
+  background-color: #17A589;
+}
+
 #result {
   margin-top: 25px;
   padding: 15px;
   border: 2px solid #1ABC9C;
   border-radius: 6px;
+  display: none; /* Hides blank box initially */
 }
 
 .whatsapp-btn {
@@ -69,6 +74,7 @@ button {
   <option>Mumbai</option>
   <option>Delhi</option>
   <option>Hyderabad</option>
+  <option>Others</option>
 </select>
 
 <input type="text" id="destination" placeholder="Destination (e.g. Paris, Vietnam, Thailand)">
@@ -90,6 +96,7 @@ button {
 <script>
 function checkTripReality() {
 
+  const departure = document.getElementById("departure").value;
   const dest = document.getElementById("destination").value.trim().toLowerCase();
   const travelDateVal = document.getElementById("travelDate").value;
   const days = Number(document.getElementById("days").value);
@@ -97,7 +104,7 @@ function checkTripReality() {
   const budget = Number(document.getElementById("budget").value);
   const hasVisa = document.getElementById("hasVisa").value;
 
-  if (!dest || !travelDateVal || !days || !travellers || !budget || !hasVisa) {
+  if (!departure || !dest || !travelDateVal || !days || !travellers || !budget || !hasVisa) {
     alert("Please fill all fields");
     return;
   }
@@ -114,84 +121,109 @@ function checkTripReality() {
   let visaInfo = "";
   let suggestions = [];
 
-  /* VISA CLASSIFICATION */
   let visaType = "visa-free";
   let minVisaDays = 0;
+  let idealMonths = "";
+  let shoulderMonths = "";
 
+  /* VISA CLASSIFICATION (INDIAN PASSPORT CONTEXT) */
   if (["vietnam","turkey","uae","cambodia"].some(x => dest.includes(x))) {
     visaType = "e-visa";
     minVisaDays = 3;
-    visaInfo = "This destination requires an e-visa, which usually takes 3–5 working days.";
+    visaInfo = "This destination requires an e-visa, which typically takes 3–5 working days.";
   }
 
-  if (["paris","france","italy","spain","portugal","germany","netherlands"].some(x => dest.includes(x))) {
+  if (["paris","france","italy","spain","portugal","germany","netherlands","switzerland"].some(x => dest.includes(x))) {
     visaType = "schengen";
     minVisaDays = 45;
     visaInfo = "Schengen visas require appointment availability and typically 45–90 days of advance planning.";
+    idealMonths = "May–June, September";
+    shoulderMonths = "April and October";
   }
 
   if (["usa","united states","uk","canada"].some(x => dest.includes(x))) {
     visaType = "long";
     minVisaDays = 60;
     visaInfo = "US/UK visas require long planning timelines and appointments.";
+    idealMonths = "May–June, September–October";
+    shoulderMonths = "April and November";
   }
 
-  /* 🔴 HARD VISA BLOCK — ABSOLUTE OVERRIDE */
+  if (["thailand","bali","indonesia","malaysia","sri lanka"].some(x => dest.includes(x))) {
+    idealMonths = "December–February";
+    shoulderMonths = "November and March";
+  }
+
+  /* 🔴 HARD VISA BLOCK */
   if (visaType !== "visa-free" && hasVisa === "no" && gapDays < minVisaDays) {
     verdict = "UNREALISTIC";
     emoji = "❌";
     reasons.push("You do not currently have the required visa, and the available time is insufficient for visa processing.");
-    suggestions.push("This trip is not feasible with the current travel date.");
-    suggestions.push("If this destination is important, planning at least a few months in advance is strongly recommended.");
+    suggestions.push("This trip is not feasible with the selected travel date.");
 
     render();
     return;
   }
 
-  /* BUDGET HARD BLOCK */
+  /* BUDGET HARD CONSTRAINT */
   if (budgetPPPD < 4500) {
     reasons.push("Budget per person per day is too low for the selected destination and duration.");
   }
 
   /* DISCLAIMERS */
   if (gapDays < 15) {
-    notes.push("Since the trip is planned at short notice, flight and accommodation prices may be higher.");
+    notes.push("This trip is planned at short notice, so flight and accommodation prices may be higher.");
   }
 
-  /* VERDICT */
+  /* VERDICT LOGIC */
   if (reasons.length === 0) {
-    verdict = "REALISTIC"; emoji = "✅";
-    suggestions.push("This trip is feasible based on your inputs.");
+    verdict = "REALISTIC";
+    emoji = "✅";
+    suggestions.push("This trip is feasible based on the information provided.");
   } else if (reasons.length <= 2) {
-    verdict = "TIGHT"; emoji = "⚠️";
-    suggestions.push("This trip may be possible but involves constraints.");
+    verdict = "TIGHT";
+    emoji = "⚠️";
+    suggestions.push("This trip may be possible but involves some constraints.");
   } else {
-    verdict = "UNREALISTIC"; emoji = "❌";
-    suggestions.push("This plan is difficult to execute comfortably.");
+    verdict = "UNREALISTIC";
+    emoji = "❌";
+    suggestions.push("This plan is difficult to execute comfortably with the current inputs.");
   }
 
   render();
 
   function render() {
-    document.getElementById("result").innerHTML = `
+    const resultDiv = document.getElementById("result");
+    resultDiv.style.display = "block";
+
+    /* CTA ALWAYS PRESENT */
+    suggestions.push("For precise itinerary and visa guidance, reach out to FrugalTrail.");
+
+    resultDiv.innerHTML = `
       <h2>${emoji} ${verdict}</h2>
 
       <h4>Why?</h4>
-      <ul>${reasons.map(r => `<li>${r}</li>`).join("")}</ul>
+      <ul>${reasons.length ? reasons.map(r => `<li>${r}</li>`).join("") : "<li>No major blockers identified.</li>"}</ul>
+
+      <h4>🌤 Ideal time to visit</h4>
+      <p>
+        <b>Best months:</b> ${idealMonths || "Varies by destination"}<br>
+        <b>Shoulder season:</b> ${shoulderMonths || "Shoulder seasons usually offer better value"}
+      </p>
 
       <h4>🛂 Visa reality</h4>
       <p>${visaInfo || "No visa barriers for Indian passport holders."}</p>
 
       ${notes.length ? `
         <h4>ℹ️ Important notes</h4>
-        <ul>${notes.map(n=>`<li>${n}</li>`).join("")}</ul>
+        <ul>${notes.map(n => `<li>${n}</li>`).join("")}</ul>
       ` : ""}
 
-      <h4>💡 Suggestions</h4>
-      <ul>${suggestions.map(s=>`<li>${s}</li>`).join("")}</ul>
+      <h4>💡 Next steps</h4>
+      <ul>${suggestions.map(s => `<li>${s}</li>`).join("")}</ul>
 
       <a class="whatsapp-btn"
-         href="https://wa.me/919840454758?text=Hi%20FrugalTrail,%20I%20need%20help%20planning%20my%20trip."
+         href="https://wa.me/919840454758?text=Hi%20FrugalTrail,%20I%20used%20TripRealityCheck%20and%20would%20like%20expert%20guidance."
          target="_blank">
          💬 Contact FrugalTrail on WhatsApp
       </a>
