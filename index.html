@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TripRealityCheck by FrugalTrail</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  max-width: 720px;
+  margin: auto;
+  padding: 20px;
+  color: #343A40;
+}
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 2px solid #1ABC9C;
+  border-radius: 6px;
+  font-size: 16px;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  background-color: #1ABC9C;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+#result {
+  margin-top: 25px;
+  padding: 15px;
+  border: 2px solid #1ABC9C;
+  border-radius: 6px;
+}
+
+.whatsapp-btn {
+  display: inline-block;
+  margin-top: 15px;
+  padding: 10px 16px;
+  background-color: #25D366;
+  color: #FFFFFF;
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+
+<div style="text-align:center; margin-bottom:20px;">
+  <img src="frugaltrail-logo.png" alt="FrugalTrail" style="max-width:220px;">
+</div>
+
+<h2 style="text-align:center;">TripRealityCheck</h2>
+
+<select id="departure">
+  <option value="">Departure City</option>
+  <option>Chennai</option>
+  <option>Bangalore</option>
+  <option>Mumbai</option>
+  <option>Delhi</option>
+  <option>Hyderabad</option>
+</select>
+
+<input type="text" id="destination" placeholder="Destination (e.g. Paris, Vietnam, Thailand)">
+<input type="date" id="travelDate" min="2025-01-01" max="2030-12-31">
+<input type="number" id="days" placeholder="Total number of days">
+<input type="number" id="travellers" placeholder="Number of travellers">
+<input type="number" id="budget" placeholder="Total budget (INR)">
+
+<select id="hasVisa">
+  <option value="">Do you already have a valid visa (if required)?</option>
+  <option value="yes">Yes</option>
+  <option value="no">No</option>
+</select>
+
+<button onclick="checkTripReality()">Check Trip Reality</button>
+
+<div id="result"></div>
+
+<script>
+function checkTripReality() {
+
+  const dest = document.getElementById("destination").value.trim().toLowerCase();
+  const travelDateVal = document.getElementById("travelDate").value;
+  const days = Number(document.getElementById("days").value);
+  const travellers = Number(document.getElementById("travellers").value);
+  const budget = Number(document.getElementById("budget").value);
+  const hasVisa = document.getElementById("hasVisa").value;
+
+  if (!dest || !travelDateVal || !days || !travellers || !budget || !hasVisa) {
+    alert("Please fill all fields");
+    return;
+  }
+
+  const today = new Date();
+  const travelDate = new Date(travelDateVal);
+  const gapDays = Math.ceil((travelDate - today) / (1000 * 60 * 60 * 24));
+  const budgetPPPD = (budget / travellers) / days;
+
+  let verdict = "";
+  let emoji = "";
+  let reasons = [];
+  let notes = [];
+  let visaInfo = "";
+  let suggestions = [];
+
+  /* VISA CLASSIFICATION */
+  let visaType = "visa-free";
+  let minVisaDays = 0;
+
+  if (["vietnam","turkey","uae","cambodia"].some(x => dest.includes(x))) {
+    visaType = "e-visa";
+    minVisaDays = 3;
+    visaInfo = "This destination requires an e-visa, which usually takes 3–5 working days.";
+  }
+
+  if (["paris","france","italy","spain","portugal","germany","netherlands"].some(x => dest.includes(x))) {
+    visaType = "schengen";
+    minVisaDays = 45;
+    visaInfo = "Schengen visas require appointment availability and typically 45–90 days of advance planning.";
+  }
+
+  if (["usa","united states","uk","canada"].some(x => dest.includes(x))) {
+    visaType = "long";
+    minVisaDays = 60;
+    visaInfo = "US/UK visas require long planning timelines and appointments.";
+  }
+
+  /* 🔴 HARD VISA BLOCK — ABSOLUTE OVERRIDE */
+  if (visaType !== "visa-free" && hasVisa === "no" && gapDays < minVisaDays) {
+    verdict = "UNREALISTIC";
+    emoji = "❌";
+    reasons.push("You do not currently have the required visa, and the available time is insufficient for visa processing.");
+    suggestions.push("This trip is not feasible with the current travel date.");
+    suggestions.push("If this destination is important, planning at least a few months in advance is strongly recommended.");
+
+    render();
+    return;
+  }
+
+  /* BUDGET HARD BLOCK */
+  if (budgetPPPD < 4500) {
+    reasons.push("Budget per person per day is too low for the selected destination and duration.");
+  }
+
+  /* DISCLAIMERS */
+  if (gapDays < 15) {
+    notes.push("Since the trip is planned at short notice, flight and accommodation prices may be higher.");
+  }
+
+  /* VERDICT */
+  if (reasons.length === 0) {
+    verdict = "REALISTIC"; emoji = "✅";
+    suggestions.push("This trip is feasible based on your inputs.");
+  } else if (reasons.length <= 2) {
+    verdict = "TIGHT"; emoji = "⚠️";
+    suggestions.push("This trip may be possible but involves constraints.");
+  } else {
+    verdict = "UNREALISTIC"; emoji = "❌";
+    suggestions.push("This plan is difficult to execute comfortably.");
+  }
+
+  render();
+
+  function render() {
+    document.getElementById("result").innerHTML = `
+      <h2>${emoji} ${verdict}</h2>
+
+      <h4>Why?</h4>
+      <ul>${reasons.map(r => `<li>${r}</li>`).join("")}</ul>
+
+      <h4>🛂 Visa reality</h4>
+      <p>${visaInfo || "No visa barriers for Indian passport holders."}</p>
+
+      ${notes.length ? `
+        <h4>ℹ️ Important notes</h4>
+        <ul>${notes.map(n=>`<li>${n}</li>`).join("")}</ul>
+      ` : ""}
+
+      <h4>💡 Suggestions</h4>
+      <ul>${suggestions.map(s=>`<li>${s}</li>`).join("")}</ul>
+
+      <a class="whatsapp-btn"
+         href="https://wa.me/919840454758?text=Hi%20FrugalTrail,%20I%20need%20help%20planning%20my%20trip."
+         target="_blank">
+         💬 Contact FrugalTrail on WhatsApp
+      </a>
+    `;
+  }
+}
+</script>
+
+</body>
+</html>
